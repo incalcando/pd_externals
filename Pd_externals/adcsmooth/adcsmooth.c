@@ -26,15 +26,20 @@ void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
 
   if(n > c + x->ignoreWithin){
     x->riseCount++;
-    x->fallCount = 0;
+    x->fallCount--;
   }else if(n < c - x->ignoreWithin){
-    x->riseCount = 0;
+    x->riseCount--;
     x->fallCount++;
   }
   else{
-    x->riseCount = 0;
-    x->fallCount = 0;
+    x->riseCount--;
+    x->fallCount--;
   }
+  
+  if(x->riseCount < 0)
+    x->riseCount = 0;
+  if(x->fallCount < 0)
+    x->fallCount = 0;
 
   outlet_float(x->out_rCount, x->riseCount);
   outlet_float(x->out_fCount, x->fallCount);
