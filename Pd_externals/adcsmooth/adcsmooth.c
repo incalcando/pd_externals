@@ -1,12 +1,15 @@
 #include "m_pd.h"
+#include <math.h>
 
 static t_class *adcsmooth_class;
 
 typedef struct _adcsmooth {
   t_object  x_obj;
-  t_int nVal, minDif, cVal, cDiv, minRiseCount, minFallCount, ignoreWithin;
-  t_int prevValues[5];
-  t_int prevDiv[5];
+  t_int nVal, minDif, cVal, lastVal, cDiv;
+  t_int minRiseCount, minFallCount, ignoreWithin;
+  t_int noToBeConsidered;
+  t_int prevValues[100];
+  t_int prevDiv[100];
   t_int current_count;
   t_int riseCount, fallCount;
   t_inlet *in_nVal, *in_minDif;
@@ -19,10 +22,71 @@ void adcsmooth_bang(t_adcsmooth *x)
   // post("This will do the decisions!");
 }
 
+t_float adcsmooth_calcDiviation(t_adcsmooth *x){
+
+  int n = x->noToBeConsidered;
+  float sum = 0.0, mean, standardDeviation = 0.0;
+    int i;
+    for(i=0; i<n; ++i)
+    {
+        sum += x->prevValues[i];
+    }
+    mean = sum/n;
+    for(i=0; i<n; ++i)
+        standardDeviation += pow(x->prevValues[i] - mean, 2);
+
+    return sqrt(standardDeviation/n);
+
+}
+
+t_float adcsmooth_calcWeightDiv(t_adcsmooth *x){
+  float sum = 0.0, mean, standardDeviation = 0.0;
+    int i;
+    int p = x->current_count;
+    int c = 0;
+    int n = x->noToBeConsidered;
+    float factor = 1 / (float)n * 0.5;
+    for(i=0; i<n; ++i)
+    {
+        sum += x->prevValues[i];
+    }
+    mean = sum/n;
+    // postfloat(factor); post(" :factor");
+
+    for (i = p; i<n; ++i)
+    {
+      // postfloat(i); post(" :i");
+      // postfloat(c); post(" :c");
+      // if(p == i){
+      //   postfloat(x->prevValues[i]); post(" :value");
+      //   postfloat(c); post(" :c");
+      // }
+      standardDeviation += pow(((x->prevValues[i] - mean)*(1-(c*factor))), 2);
+      c++;
+
+    }
+    for (i = 0; i < p; ++i)
+    {
+      // postfloat(i); post(" :i");
+      // postfloat(c); post(" :c");
+      standardDeviation += pow(((x->prevValues[i] - mean)*(1-(c*factor))), 2);
+      c++;
+
+    }
+    // post("-------");
+    return sqrt(standardDeviation/n);
+}
+
 void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
   t_int n = (t_int)f;
   t_int c = x->cVal;
   t_int d = x->minDif;
+  // t_int l = x->lastVal;
+  // t_int cDiv = n - l;
+
+  // x->prevDiv[x->current_count] = cDiv;
+  x->prevValues[x->current_count] = f;
+
 
   if(n > c + x->ignoreWithin){
     x->riseCount++;
@@ -35,14 +99,17 @@ void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
     x->riseCount--;
     x->fallCount--;
   }
-  
+
   if(x->riseCount < 0)
     x->riseCount = 0;
   if(x->fallCount < 0)
     x->fallCount = 0;
 
-  outlet_float(x->out_rCount, x->riseCount);
-  outlet_float(x->out_fCount, x->fallCount);
+  // outlet_float(x->out_rCount, x->riseCount);
+  // outlet_float(x->out_fCount, x->fallCount);
+
+  outlet_float(x->out_rCount, adcsmooth_calcDiviation(x));
+  outlet_float(x->out_fCount, adcsmooth_calcWeightDiv(x));
 
     if(n >= c + d || n <= c - d ){
       x->cVal = n;
@@ -56,6 +123,9 @@ void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
         outlet_float(x->out, x->cVal);
       }
     }
+    x->current_count++;
+    if(x->current_count > x->noToBeConsidered)
+      x->current_count = 0;
 }
 
 void adcsmooth_onSet_minDif(t_adcsmooth *x, t_floatarg f){
@@ -69,7 +139,11 @@ void adcsmooth_setArgs(t_adcsmooth *x,
                         t_floatarg f4,
                         t_floatarg f5)
 {
-    x->cVal = (t_int)f1;
+  if(f1 > 0)
+    x->noToBeConsidered = (t_int)f1;
+  else
+    x->noToBeConsidered = 10;
+
     x->minDif = (t_int)f2;
     if(f3 <= 0)
       x->minRiseCount = 5;
@@ -94,6 +168,10 @@ void *adcsmooth_new(t_floatarg f1, t_floatarg f2, t_floatarg f3, t_floatarg f4, 
   x->out = outlet_new(&x->x_obj, &s_float);
   x->out_fCount = outlet_new(&x->x_obj, &s_float);
   x->out_rCount = outlet_new(&x->x_obj, &s_float);
+
+  x->current_count = 0;
+
+  x->noToBeConsidered = 10;
 
   // x->cVal = 0;
   // x->minDif = 0;
