@@ -1,11 +1,11 @@
 #N canvas 408 164 686 627 10;
 #X msg 85 280 bang;
-#X obj 227 300 i;
+#X obj 247 302 i;
 #X obj 253 33 loadbang;
 #X msg 304 54 1;
 #X obj 198 466 print;
 #X floatatom 140 80 5 0 0 0 - - -;
-#X floatatom 227 268 5 0 0 0 - - -;
+#X floatatom 247 270 5 0 0 0 - - -;
 #X obj 177 177 random 11;
 #X floatatom 170 292 5 0 0 0 - - -;
 #X obj 138 324 +;
