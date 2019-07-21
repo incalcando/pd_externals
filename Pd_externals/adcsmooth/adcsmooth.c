@@ -108,8 +108,13 @@ void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
   // outlet_float(x->out_rCount, x->riseCount);
   // outlet_float(x->out_fCount, x->fallCount);
 
-  outlet_float(x->out_rCount, adcsmooth_calcDiviation(x));
-  outlet_float(x->out_fCount, adcsmooth_calcWeightDiv(x));
+  // outlet_float(x->out_rCount, adcsmooth_calcDiviation(x));
+  // outlet_float(x->out_fCount, adcsmooth_calcWeightDiv(x));
+
+  if(adcsmooth_calcWeightDiv(x) > 4){
+    outlet_float(x->out_fCount, n);
+    x->cVal = n;
+  }
 
     if(n >= c + d || n <= c - d ){
       x->cVal = n;
