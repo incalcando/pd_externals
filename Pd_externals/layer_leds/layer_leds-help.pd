@@ -1,0 +1,13 @@
+#N canvas 432 138 987 675 10;
+#X msg 41 243 bang;
+#X obj 49 299 layer_leds, f 15;
+#X obj 150 251 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+1;
+#X obj 46 386 print;
+#X floatatom 86 346 5 0 0 0 - - -;
+#X floatatom 97 241 5 0 0 0 - - -;
+#X connect 0 0 1 0;
+#X connect 1 0 3 0;
+#X connect 1 0 4 0;
+#X connect 2 0 1 2;
+#X connect 5 0 1 1;

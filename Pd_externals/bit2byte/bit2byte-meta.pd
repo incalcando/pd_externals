@@ -1,0 +1,9 @@
+#N canvas 966 262 200 200 10;
+#N canvas 475 587 420 300 META 1;
+#X text 10 10 META this is a prototype of a libdir meta file;
+#X text 10 90 LICENSE ?;
+#X text 10 110 VERSION 1.0.0;
+#X text 10 30 NAME bit2byte;
+#X text 10 51 AUTHOR Sebastian Lexer;
+#X text 10 70 DESCRIPTION Example "bit2byte" external.;
+#X restore 10 10 pd META;
