@@ -37,13 +37,6 @@ void layerlogic_new_give_output(t_layerlogic_new *x)
 
 }
 
-// t_float layerlogic_new_getLedByte(t_layerlogic_new *x, t_float layer, t_float omega){
-//
-//   t_float byteValue = x->ledByteValues[layer] + omega;
-//
-//   return byteValue;
-// }
-
 void layerlogic_new_onSet_play(t_layerlogic_new *x, t_floatarg f){
   x->playLayer = f;
   layerlogic_new_give_output(x);
@@ -80,7 +73,7 @@ void *layerlogic_new_new(void)
 
 
   x->playLayer = 1;
-  x->recLayer = 1;
+  x->recLayer = 7;
   x->omega = 0;
 
   x->ledByteValues[0] = 64;
@@ -90,7 +83,7 @@ void *layerlogic_new_new(void)
   x->ledByteValues[4] = 4;
   x->ledByteValues[5] = 2;
 
-  x->sharedPlayAndRec = 0;
+  x->sharedPlayAndRec = 1;
 
   return (void *)x;
 }
