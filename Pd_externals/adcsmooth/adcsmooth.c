@@ -5,7 +5,7 @@ static t_class *adcsmooth_class;
 
 typedef struct _adcsmooth {
   t_object  x_obj;
-  t_int nVal, minDif, cVal, lastVal, cDiv;
+  t_int nVal, minDif, cVal, lastVal, cDiv, forceDif;
   t_int minRiseCount, minFallCount, ignoreWithin;
   t_int noToBeConsidered;
   t_int prevValues[100];
@@ -29,18 +29,23 @@ t_float adcsmooth_calcDiviation(t_adcsmooth *x){
     int i;
     for(i=0; i<n; ++i)
     {
-        sum += x->prevValues[i];
+        sum += x->prevDiv[i];
     }
     mean = sum/n;
     for(i=0; i<n; ++i)
-        standardDeviation += pow(x->prevValues[i] - mean, 2);
+        standardDeviation += pow(x->prevDiv[i] - mean, 2);
 
-    return sqrt(standardDeviation/n);
+    standardDeviation = sqrt(standardDeviation / n);
+
+    if(mean < 0)
+        standardDeviation *= -1;
+
+    return standardDeviation;
 
 }
 
 t_float adcsmooth_calcWeightDiv(t_adcsmooth *x){
-  float sum = 0.0, mean, standardDeviation = 0.0;
+  float sum = 0.0, sumVal = 0.0, mean, standardDeviation = 0.0;
     int i;
     int p = x->current_count;
     int c = 0;
@@ -48,9 +53,15 @@ t_float adcsmooth_calcWeightDiv(t_adcsmooth *x){
     float factor = 1 / (float)n * 0.5;
     for(i=0; i<n; ++i)
     {
-        sum += x->prevValues[i];
+        sum += x->prevDiv[i];
     }
     mean = sum/n;
+
+    for(i=0; i<n; ++i)
+    {
+        sumVal+= x->prevValues[i];
+    }
+    x->cVal = sumVal / n;
     // postfloat(factor); post(" :factor");
 
     for (i = p; i<n; ++i)
@@ -61,7 +72,7 @@ t_float adcsmooth_calcWeightDiv(t_adcsmooth *x){
       //   postfloat(x->prevValues[i]); post(" :value");
       //   postfloat(c); post(" :c");
       // }
-      standardDeviation += pow(((x->prevValues[i] - mean)*(1-(c*factor))), 2);
+      standardDeviation += pow(((x->prevDiv[i] - mean)*(1-(c*factor))), 2);
       c++;
 
     }
@@ -69,22 +80,27 @@ t_float adcsmooth_calcWeightDiv(t_adcsmooth *x){
     {
       // postfloat(i); post(" :i");
       // postfloat(c); post(" :c");
-      standardDeviation += pow(((x->prevValues[i] - mean)*(1-(c*factor))), 2);
+      standardDeviation += pow(((x->prevDiv[i] - mean)*(1-(c*factor))), 2);
       c++;
 
     }
     // post("-------");
-    return sqrt(standardDeviation/n);
+    standardDeviation = sqrt(standardDeviation / n);
+
+    if(mean < 0)
+        standardDeviation *= -1;
+
+    return standardDeviation;
 }
 
 void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
   t_int n = (t_int)f;
   t_int c = x->cVal;
   t_int d = x->minDif;
-  // t_int l = x->lastVal;
-  // t_int cDiv = n - l;
+  t_int l = x->lastVal;
+  t_int cDiv = n - l;
 
-  // x->prevDiv[x->current_count] = cDiv;
+  x->prevDiv[x->current_count] = cDiv;
   x->prevValues[x->current_count] = f;
 
 
@@ -111,23 +127,49 @@ void adcsmooth_onSet_newValue(t_adcsmooth *x, t_floatarg f){
   // outlet_float(x->out_rCount, adcsmooth_calcDiviation(x));
   // outlet_float(x->out_fCount, adcsmooth_calcWeightDiv(x));
 
-  if(adcsmooth_calcWeightDiv(x) > 4){
-    outlet_float(x->out_fCount, n);
-    x->cVal = n;
-  }
+  // if(adcsmooth_calcWeightDiv(x) > 4){
+  //   outlet_float(x->out_fCount, n);
+  //   x->cVal = n;
+  // }
 
-    if(n >= c + d || n <= c - d ){
-      x->cVal = n;
+  outlet_float(x->out_rCount, cDiv);
+  outlet_float(x->out_fCount, adcsmooth_calcWeightDiv(x));
+
+  // if(adcsmooth_calcDiviation(x) > 4){
+  //   outlet_float(x->out_fCount, n);
+  //   x->cVal = n;
+  // }
+
+
+
+    // if(n >= c + d || n <= c - d ){
+    //   x->cVal = n;
+    //   outlet_float(x->out, x->cVal);
+    // }
+    // else{
+    //   if(x->riseCount > x->minRiseCount || x->fallCount > x->minFallCount){
+    //     x->cVal = n;
+    //     // x->riseCount = 0;
+    //     // x->fallCount = 0;
+    //     outlet_float(x->out, x->cVal);
+    //   }
+    // }
+
+    if(abs(cDiv) > x->forceDif){
+        outlet_float(x->out, n);
+        for(int i=0; i<x->noToBeConsidered; ++i)
+        {
+            x->prevValues[i] = n;
+            x->prevDiv[i] = 0;
+        }
+    } else if (adcsmooth_calcWeightDiv(x) >= x->minDif || adcsmooth_calcWeightDiv(x) <= x->minDif * -1)
+    {
+      // x->cVal = n;
       outlet_float(x->out, x->cVal);
     }
-    else{
-      if(x->riseCount > x->minRiseCount || x->fallCount > x->minFallCount){
-        x->cVal = n;
-        // x->riseCount = 0;
-        // x->fallCount = 0;
-        outlet_float(x->out, x->cVal);
-      }
-    }
+
+
+    x->lastVal = n;
     x->current_count++;
     if(x->current_count > x->noToBeConsidered)
       x->current_count = 0;
@@ -151,9 +193,9 @@ void adcsmooth_setArgs(t_adcsmooth *x,
 
     x->minDif = (t_int)f2;
     if(f3 <= 0)
-      x->minRiseCount = 5;
+      x->forceDif = 50;
     else
-      x->minRiseCount = (t_int)f3;
+      x->forceDif = (t_int)f3;
 
     if(f4 <= 0)
       x->minFallCount = 5;
